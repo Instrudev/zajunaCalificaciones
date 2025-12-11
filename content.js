@@ -221,9 +221,9 @@
     const regex = /^Fase\s+[1-4]/i;
 
     rows.forEach((row, index) => {
-      const span = row.querySelector('span');
-      if (!span) return;
-      const text = (span.innerText || '').trim();
+      const phaseSpan = row.querySelector('th.category .category-content span');
+      if (!phaseSpan) return;
+      const text = (phaseSpan.innerText || '').trim();
       if (!regex.test(text)) return;
 
       phases.push({
