@@ -9,6 +9,7 @@
 
   const state = {
     phases: [],
+    rows: [],
     modal: null,
     phaseListContainer: null,
     progressArea: null,
@@ -214,26 +215,28 @@
   }
 
   function detectPhases() {
-    const headingSelectors = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
-    const regex = /^\s*Fase\s+\d+/i;
-    const nodes = Array.from(document.querySelectorAll(headingSelectors.join(',')));
+    const rows = Array.from(document.querySelectorAll('tr'));
+    state.rows = rows;
     const phases = [];
+    const regex = /^Fase\s+[1-4]/i;
 
-    nodes.forEach((node, index) => {
-      const text = (node.textContent || '').trim();
+    rows.forEach((row, index) => {
+      const span = row.querySelector('span');
+      if (!span) return;
+      const text = (span.innerText || '').trim();
       if (!regex.test(text)) return;
-      const container = findPhaseContainer(node);
-      if (!container) return;
 
       phases.push({
         title: text,
-        element: node,
-        container,
-        order: index,
+        startIndex: index,
+        rowElement: row,
       });
     });
 
-    phases.sort((a, b) => a.order - b.order);
+    phases.forEach((phase, i) => {
+      phase.endIndex = i < phases.length - 1 ? phases[i + 1].startIndex : rows.length;
+    });
+
     return phases;
   }
 
@@ -335,46 +338,30 @@
   }
 
   function collectActivities(selectedPhase) {
-    const scope = selectedPhase?.container;
-    if (!scope) return [];
-
-    const spans = Array.from(scope.querySelectorAll('span.d-block.text-uppercase.small.dimmed_text'));
-    const evidences = spans.filter((span) => span.textContent.trim() === 'Evidencia');
-    const activities = [];
-
-    evidences.forEach((span) => {
-      const container = span.closest('tr, li, div');
-      const link = container ? container.querySelector('a.gradeitemheader') : null;
-      if (!link) return;
-
-      activities.push({
-        name: (link.textContent || '').trim(),
-        url: link.href,
-      });
-    });
-
-    return activities;
+    if (!selectedPhase || !state.rows.length) return [];
+    return getEvidenceActivities(selectedPhase, state.rows);
   }
 
-  function findPhaseContainer(heading) {
-    if (!heading) return null;
-    const preferredContainers = [
-      '.collapsible',
-      '.card',
-      '.box',
-      '.section',
-      '.panel',
-      '.course-content',
-      '.container-fluid',
-      '.container',
-    ];
+  function getEvidenceActivities(phase, rows) {
+    const activities = [];
 
-    for (const selector of preferredContainers) {
-      const candidate = heading.closest(selector);
-      if (candidate) return candidate;
+    for (let i = phase.startIndex + 1; i < phase.endIndex; i++) {
+      const row = rows[i];
+
+      const span = row.querySelector('span.d-block.text-uppercase.small.dimmed_text');
+
+      if (span && span.innerText.trim() === 'Evidencia') {
+        const link = row.querySelector('a.gradeitemheader');
+        if (link) {
+          activities.push({
+            name: link.innerText.trim(),
+            url: link.href,
+          });
+        }
+      }
     }
 
-    return heading.parentElement || null;
+    return activities;
   }
 
   function fetchPendingCount(url) {
