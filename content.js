@@ -214,29 +214,26 @@
   }
 
   function detectPhases() {
-    const selectors = ['h2', 'h3', 'h4', 'h5', 'h6', 'button', 'a', 'div', 'span'];
-    const regex = /\bFase\s+\d+/i;
-    const nodes = Array.from(document.querySelectorAll(selectors.join(',')));
+    const headingSelectors = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
+    const regex = /^\s*Fase\s+\d+/i;
+    const nodes = Array.from(document.querySelectorAll(headingSelectors.join(',')));
     const phases = [];
-    const seen = new Set();
 
-    nodes.forEach((node) => {
+    nodes.forEach((node, index) => {
       const text = (node.textContent || '').trim();
       if (!regex.test(text)) return;
-      const key = `${text}-${phases.length}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      phases.push({ title: text, element: node });
+      const container = findPhaseContainer(node);
+      if (!container) return;
+
+      phases.push({
+        title: text,
+        element: node,
+        container,
+        order: index,
+      });
     });
 
-    phases.sort((a, b) => {
-      if (a.element === b.element) return 0;
-      const pos = a.element.compareDocumentPosition(b.element);
-      if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1;
-      if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
-      return 0;
-    });
-
+    phases.sort((a, b) => a.order - b.order);
     return phases;
   }
 
@@ -338,33 +335,46 @@
   }
 
   function collectActivities(selectedPhase) {
-    const spans = Array.from(document.querySelectorAll('span.d-block.text-uppercase.small.dimmed_text'));
-    const evidences = spans.filter((span) => span.textContent.trim().toLowerCase() === 'evidencia');
+    const scope = selectedPhase?.container;
+    if (!scope) return [];
+
+    const spans = Array.from(scope.querySelectorAll('span.d-block.text-uppercase.small.dimmed_text'));
+    const evidences = spans.filter((span) => span.textContent.trim() === 'Evidencia');
     const activities = [];
+
     evidences.forEach((span) => {
       const container = span.closest('tr, li, div');
       const link = container ? container.querySelector('a.gradeitemheader') : null;
       if (!link) return;
-      const assignedPhase = findPhaseForElement(span, state.phases);
-      if (!assignedPhase || assignedPhase.element !== selectedPhase.element) return;
+
       activities.push({
         name: (link.textContent || '').trim(),
         url: link.href,
       });
     });
+
     return activities;
   }
 
-  function findPhaseForElement(element, phases) {
-    let candidate = null;
-    for (const phase of phases) {
-      if (phase.element.contains(element)) return phase;
-      const pos = phase.element.compareDocumentPosition(element);
-      if (pos & Node.DOCUMENT_POSITION_FOLLOWING) {
-        candidate = phase;
-      }
+  function findPhaseContainer(heading) {
+    if (!heading) return null;
+    const preferredContainers = [
+      '.collapsible',
+      '.card',
+      '.box',
+      '.section',
+      '.panel',
+      '.course-content',
+      '.container-fluid',
+      '.container',
+    ];
+
+    for (const selector of preferredContainers) {
+      const candidate = heading.closest(selector);
+      if (candidate) return candidate;
     }
-    return candidate;
+
+    return heading.parentElement || null;
   }
 
   function fetchPendingCount(url) {
