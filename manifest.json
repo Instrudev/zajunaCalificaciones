@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Zajuna pendientes por fase",
+  "version": "1.0.0",
+  "description": "Exporta actividades tipo Evidencia con pendientes por calificar desde Zajuna.",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://zajuna.sena.edu.co/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://zajuna.sena.edu.co/zajuna/grade/report/user/index.php?id=*"
+      ],
+      "js": [
+        "xlsx.full.min.js",
+        "content.js"
+      ]
+    }
+  ]
+}
