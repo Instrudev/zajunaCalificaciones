@@ -215,26 +215,33 @@
   }
 
   function detectPhases() {
-    const rows = Array.from(document.querySelectorAll('tr'));
-    state.rows = rows;
+    state.rows = Array.from(document.querySelectorAll('tr'));
+    return getPhases();
+  }
+
+  function getPhases() {
+    const spans = Array.from(
+      document.querySelectorAll('tr > th.level2.category .category-content span')
+    );
     const phases = [];
-    const regex = /^Fase\s+[1-4]/i;
 
-    rows.forEach((row, index) => {
-      const phaseSpan = row.querySelector('th.category .category-content span');
-      if (!phaseSpan) return;
-      const text = (phaseSpan.innerText || '').trim();
-      if (!regex.test(text)) return;
+    spans.forEach((span) => {
+      const text = (span.innerText || '').trim();
+      if (!/^Fase\s+[1-4]/i.test(text)) return;
 
-      phases.push({
-        title: text,
-        startIndex: index,
-        rowElement: row,
-      });
+      const row = span.closest('tr');
+      if (!row) return;
+
+      phases.push({ title: text, row });
     });
 
+    phases.sort((a, b) =>
+      a.row.compareDocumentPosition(b.row) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1
+    );
+
     phases.forEach((phase, i) => {
-      phase.endIndex = i < phases.length - 1 ? phases[i + 1].startIndex : rows.length;
+      phase.startRow = phase.row;
+      phase.endRow = i < phases.length - 1 ? phases[i + 1].row : null;
     });
 
     return phases;
@@ -338,27 +345,31 @@
   }
 
   function collectActivities(selectedPhase) {
-    if (!selectedPhase || !state.rows.length) return [];
-    return getEvidenceActivities(selectedPhase, state.rows);
+    if (!selectedPhase) return [];
+    return getEvidenceActivities(selectedPhase);
   }
 
-  function getEvidenceActivities(phase, rows) {
+  function getEvidenceActivities(phase) {
     const activities = [];
+    const rows = Array.from(document.querySelectorAll('tr'));
+    const startIndex = rows.indexOf(phase.startRow);
+    const endIndex = phase.endRow ? rows.indexOf(phase.endRow) : rows.length;
 
-    for (let i = phase.startIndex + 1; i < phase.endIndex; i++) {
+    for (let i = startIndex + 1; i < endIndex; i++) {
       const row = rows[i];
+      const th = row.querySelector('th.level3.item');
+      if (!th) continue;
 
-      const span = row.querySelector('span.d-block.text-uppercase.small.dimmed_text');
+      const span = th.querySelector('span[title="Evidencia"]');
+      if (!span) continue;
 
-      if (span && span.innerText.trim() === 'Evidencia') {
-        const link = row.querySelector('a.gradeitemheader');
-        if (link) {
-          activities.push({
-            name: link.innerText.trim(),
-            url: link.href,
-          });
-        }
-      }
+      const link = th.querySelector('a.gradeitemheader');
+      if (!link) continue;
+
+      activities.push({
+        name: link.innerText.trim(),
+        url: link.href,
+      });
     }
 
     return activities;
